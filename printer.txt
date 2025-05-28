@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Math Helper - Linear Equation Solver</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 600px; margin: 2rem auto; padding: 1rem; }
+  h1 { text-align: center; }
+  label, input, button { display: block; width: 100%; margin: 0.5rem 0; }
+  #solution, #steps { background: #f7f7f7; padding: 1rem; margin-top: 1rem; border-radius: 5px; }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <h1>Math Helper - Linear Equation Solver</h1>
+  <label for="equation">Enter a linear equation (e.g. 3x + 5 = 11):</label>
+  <input type="text" id="equation" placeholder="3x + 5 = 11" />
+  <button id="solveBtn">Solve</button>
+  <div id="solution"></div>
+  <div id="steps"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
+  <script>
+    const solveBtn = document.getElementById('solveBtn');
+    const solutionDiv = document.getElementById('solution');
+    const stepsDiv = document.getElementById('steps');
+    const equationInput = document.getElementById('equation');
+
+    solveBtn.addEventListener('click', () => {
+      const input = equationInput.value.trim();
+      if (!input.includes('=')) {
+        solutionDiv.textContent = 'Please enter a valid equation with "=" sign.';
+        stepsDiv.textContent = '';
+        return;
+      }
+
+      // Split into left and right parts
+      const [left, right] = input.split('=').map(s => s.trim());
+
+      try {
+        // Use math.js to parse and solve
+        // We'll attempt linear equation solving for 'x'
+        // Construct equation: left - right = 0
+        const expr = math.parse(`(${left}) - (${right})`);
+        
+        // The solve function below is a simple linear solver for ax + b = 0
+        function solveLinear(exprNode) {
+          // exprNode is mathjs expression tree
+
+          // We'll attempt to get coefficients a and b for ax + b = 0
+          // We assume single variable 'x'
+          const coeffs = { a: 0, b: 0 };
+
+          function traverse(node) {
+            if (node.isOperatorNode && node.op === '+') {
+              node.args.forEach(traverse);
+            } else if (node.isOperatorNode && node.op === '-') {
+              traverse(node.args[0]);
+              // negate second arg
+              const negated = math.multiply(-1, node.args[1].compile().evaluate());
+              coeffs.b += negated;
+            } else if (node.isSymbolNode && node.name === 'x') {
+              coeffs.a += 1;
+            } else if (node.isOperatorNode && node.op === '*') {
+              // Look for coeff * x
+              const [leftNode, rightNode] = node.args;
+              if (leftNode.isConstantNode && rightNode.isSymbolNode && rightNode.name === 'x') {
+                coeffs.a += leftNode.value;
+              } else if (rightNode.isConstantNode && leftNode.isSymbolNode && leftNode.name === 'x') {
+                coeffs.a += rightNode.value;
+              }
+            } else if (node.isConstantNode) {
+              coeffs.b += node.value;
+            } else {
+              throw new Error('Unsupported expression format');
+            }
+          }
+
+          traverse(exprNode);
+
+          if (coeffs.a === 0) throw new Error('No variable x found or zero coefficient');
+
+          const solution = -coeffs.b / coeffs.a;
+
+          return { solution, coeffs };
+        }
+
+        // Try to solve linear
+        const { solution, coeffs } = solveLinear(expr);
+
+        // Display solution
+        solutionDiv.innerHTML = `<strong>Solution: x = ${solution.toFixed(4)}</strong>`;
+
+        // Step-by-step explanation
+        const steps = [];
+        steps.push(`Given equation: ${left} = ${right}`);
+        steps.push(`Step 1: Subtract ${right} from both sides: (${left}) - (${right}) = 0`);
+        steps.push(`Step 2: Express in the form ax + b = 0, where a = ${coeffs.a}, b = ${coeffs.b.toFixed(4)}`);
+        steps.push(`Step 3: Solve for x: x = -b / a = ${-coeffs.b.toFixed(4)} / ${coeffs.a} = ${solution.toFixed(4)}`);
+
+        stepsDiv.innerHTML = '<pre>' + steps.join('\n') + '</pre>';
+
+      } catch (error) {
+        solutionDiv.textContent = 'Error: ' + error.message;
+        stepsDiv.textContent = '';
+      }
+    });
+  </script>
+</body>
+</html>
