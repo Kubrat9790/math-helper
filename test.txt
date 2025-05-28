@@ -1,0 +1,170 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Math Helper - Linear Equation Solver</title>
+  <script src="https://cdn.jsdelivr.net/npm/mathjs@11.8.0/lib/browser/math.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 500px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+    h1 {
+      color: #2c3e50;
+    }
+    input {
+      width: 100%;
+      font-size: 1.1em;
+      padding: 10px;
+      margin-bottom: 10px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 1em;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    #solution {
+      margin-top: 20px;
+      font-weight: bold;
+      font-size: 1.2em;
+      color: #27ae60;
+    }
+    #explanation {
+      margin-top: 15px;
+      font-style: italic;
+      color: #34495e;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Math Helper: Solve Linear Equations in x</h1>
+  <input type="text" id="equation" placeholder="Example: 2*x + 3 = 7" />
+  <button onclick="solveEquation()">Solve Equation</button>
+  
+  <div id="solution"></div>
+  <div id="explanation"></div>
+
+  <script>
+    function solveEquation() {
+      const input = document.getElementById('equation').value.trim();
+      const solutionElem = document.getElementById('solution');
+      const explanationElem = document.getElementById('explanation');
+      
+      solutionElem.textContent = '';
+      explanationElem.textContent = '';
+
+      if (!input) {
+        solutionElem.textContent = 'Please enter an equation to solve.';
+        solutionElem.style.color = 'red';
+        return;
+      }
+
+      const sides = input.split('=');
+      if (sides.length !== 2) {
+        solutionElem.textContent = 'Error: Equation must contain exactly one "=" sign.';
+        solutionElem.style.color = 'red';
+        return;
+      }
+
+      try {
+        const left = sides[0];
+        const right = sides[1];
+
+        // math.js парсва двата израза
+        const leftNode = math.parse(left);
+        const rightNode = math.parse(right);
+
+        // Създаваме израз: left - right = 0
+        const expr = new math.OperatorNode('-', 'subtract', [leftNode, rightNode]);
+
+        // math.js solve приема израз и променлива за решаване
+        // Важно: math.solve e част от mathjs-extended (не е в основната библиотека),
+        // затова ще използваме numeric method: решаваме линейно уравнение ръчно
+
+        // Опитваме се да изразим x от израза left - right = 0
+
+        // Изчисляваме коефициентите за x и свободния член
+        
+        // Помощна функция за извличане на коефициенти
+        function getCoeffAndConst(node) {
+          let coeff = 0;
+          let constant = 0;
+
+          function traverse(n, sign = 1) {
+            if (n.isOperatorNode && n.op === '+') {
+              traverse(n.args[0], sign);
+              traverse(n.args[1], sign);
+            } else if (n.isOperatorNode && n.op === '-') {
+              traverse(n.args[0], sign);
+              traverse(n.args[1], -sign);
+            } else if (n.isOperatorNode && n.op === '*') {
+              // Търсим коефициент * x
+              if (n.args[0].isSymbolNode && n.args[0].name === 'x' && n.args[1].isConstantNode) {
+                coeff += sign * n.args[1].value;
+              } else if (n.args[1].isSymbolNode && n.args[1].name === 'x' && n.args[0].isConstantNode) {
+                coeff += sign * n.args[0].value;
+              } else {
+                // Ако не може да се анализира - throw
+                throw new Error('Unsupported multiplication form.');
+              }
+            } else if (n.isSymbolNode && n.name === 'x') {
+              coeff += sign * 1;
+            } else if (n.isConstantNode) {
+              constant += sign * n.value;
+            } else {
+              throw new Error('Unsupported expression format.');
+            }
+          }
+
+          traverse(node);
+          return { coeff, constant };
+        }
+
+        const { coeff, constant } = getCoeffAndConst(expr);
+
+        if (coeff === 0) {
+          if (constant === 0) {
+            solutionElem.textContent = 'Infinite solutions (identity equation).';
+            solutionElem.style.color = '#27ae60';
+            explanationElem.textContent = 'Explanation: The equation holds true for any value of x.';
+          } else {
+            solutionElem.textContent = 'No solution.';
+            solutionElem.style.color = 'red';
+            explanationElem.textContent = 'Explanation: The equation is contradictory.';
+          }
+          return;
+        }
+
+        const xValue = -constant / coeff;
+        solutionElem.textContent = `Solution: x = ${xValue}`;
+        solutionElem.style.color = '#27ae60';
+
+        // Обяснение стъпка по стъпка
+        explanationElem.textContent =
+          `Step 1: Move all terms to one side to get equation of form: coeff*x + constant = 0\n` +
+          `Step 2: Extracted coefficient of x: ${coeff}\n` +
+          `Step 3: Extracted constant term: ${constant}\n` +
+          `Step 4: Solve for x: x = -constant / coeff = ${xValue}\n` +
+          `Step 5: Done!`;
+
+      } catch (error) {
+        solutionElem.textContent = 'Error: ' + error.message;
+        solutionElem.style.color = 'red';
+        explanationElem.textContent = '';
+      }
+    }
+  </script>
+</body>
+</html>
+
